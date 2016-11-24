@@ -1,0 +1,7 @@
+# Eclipse IDE files
+/.settings
+/.project
+/.buildpath
+
+# Dependencies
+/vendor
