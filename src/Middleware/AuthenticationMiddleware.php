@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) 2016 Axel Helmert
+ * Copyright (c) 2017 Axel Helmert
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,14 +16,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * @author    Axel Helmert
- * @copyright Copyright (c) 2016 Axel Helmert
+ * @copyright Copyright (c) 2017 Axel Helmert
  * @license   http://www.gnu.org/licenses/gpl-3.0.txt GNU General Public License
  */
 
-if (PHP_SAPI == 'cli') {
-    require 'phar://' . __FILE__ . '/cli.php';
-} else {
-    require 'phar://' . __FILE__ . '/public/index.php';
-}
+namespace Rampage\Nexus\Node\Middleware;
 
-__HALT_COMPILER();
+use Interop\Http\ServerMiddleware\MiddlewareInterface;
+use Interop\Http\ServerMiddleware\DelegateInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Zend\Diactoros\Response\TextResponse;
+
+
+class AuthenticationMiddleware implements MiddlewareInterface
+{
+    /**
+     * Check if the request has a valid authentication
+     */
+    public function process(ServerRequestInterface $request, DelegateInterface $delegate)
+    {
+        // TODO Auto-generated method stub
+        return new TextResponse('Unauthorized', 401);
+    }
+}

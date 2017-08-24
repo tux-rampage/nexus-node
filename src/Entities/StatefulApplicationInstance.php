@@ -39,7 +39,7 @@ class StatefulApplicationInstance extends ApplicationInstance
      */
     public function isOutOfSync()
     {
-        if (!$this->getState() == self::STATE_REMOVING) {
+        if ($this->getState() == self::STATE_REMOVING) {
             return ($this->deployedPackageId !== null);
         }
 

@@ -20,31 +20,33 @@
  * @license   http://www.gnu.org/licenses/gpl-3.0.txt GNU General Public License
  */
 
-namespace Rampage\Nexus\Node\Middleware;
+namespace Rampage\Nexus\Node\Action;
 
 use Rampage\Nexus\Node\DeployStrategyInterface;
 use Rampage\Nexus\Node\Repository\ApplicationRepositoryInterface;
 use Rampage\Nexus\Node\Repository\VHostRepositoryInterface;
+use Rampage\Nexus\Node\VHostDeployStrategyInterface;
+use Rampage\Nexus\Node\Job\DeployVHostJob;
+use Rampage\Nexus\Node\Job\DeployApplicationJob;
 
+use Rampage\Nexus\Job\QueueInterface;
 use Rampage\Nexus\Deployment\NodeInterface;
 use Rampage\Nexus\Entities\ApplicationInstance;
-use Rampage\Nexus\Middleware\DecodeRequestBodyTrait;
 
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\RequestInterface;
 
 use Zend\Diactoros\Response\JsonResponse;
-use Rampage\Nexus\Node\VHostDeployStrategyInterface;
-use Rampage\Nexus\Jobs\QueueInterface;
+
+use Throwable;
+use Exception;
 
 
 /**
- * Notification middleware
+ * Notification rest action
  */
-class NotifyMiddleware
+class NotifyAction
 {
-    use DecodeRequestBodyTrait;
-
     /**
      * @var ApplicationRepositoryInterface
      */
@@ -71,7 +73,10 @@ class NotifyMiddleware
      * @param DeployStrategyInterface $deployStrategy
      * @param QueueInterface $jobQueue
      */
-    public function __construct(ApplicationRepositoryInterface $applicationRepository, VHostRepositoryInterface $vhostRepository, DeployStrategyInterface $deployStrategy, QueueInterface $jobQueue)
+    public function __construct(ApplicationRepositoryInterface $applicationRepository,
+        VHostRepositoryInterface $vhostRepository,
+        DeployStrategyInterface $deployStrategy,
+        QueueInterface $jobQueue)
     {
         $this->applicationRepository = $applicationRepository;
         $this->vhostRepository = $vhostRepository;
@@ -84,7 +89,7 @@ class NotifyMiddleware
      * @param unknown $nodeState
      * @return string|unknown
      */
-    protected function getNodeState($applicationState, $nodeState)
+    private function getNodeState($applicationState, $nodeState)
     {
         if (($nodeState == NodeInterface::STATE_FAILURE) || ($applicationState == ApplicationInstance::STATE_ERROR)) {
             return NodeInterface::STATE_FAILURE;
@@ -102,7 +107,7 @@ class NotifyMiddleware
      * @param   string  $state  The current node state
      * @return  string          The new node state
      */
-    protected function synchronizeVHosts($state)
+    private function synchronizeVHosts($state)
     {
         if (!$this->deployStrategy instanceof VHostDeployStrategyInterface) {
             return $state;
@@ -114,20 +119,27 @@ class NotifyMiddleware
             }
 
             $state = NodeInterface::STATE_BUILDING;
-            // FIXME: Add to queue
+            $job = new DeployVHostJob($vhost);
+
+            $this->jobQueue->schedule($job);
         }
+
+        return $state;
     }
 
     /**
      * @param   string  $state  The current node state
      * @return  string          The new node state
      */
-    protected function synchronizeApplications($state)
+    private function synchronizeApplications($state)
     {
         foreach ($this->applicationRepository->findAll() as $application) {
             if ($application->isOutOfSync()) {
-                // TODO: Schedule
                 $application->setState(ApplicationInstance::STATE_PENDING);
+                $this->applicationRepository->updateState($application);
+
+                $job = new DeployApplicationJob($application);
+                $this->jobQueue->schedule($job);
             }
 
             $state = $this->getNodeState($application->getState(), $state);
@@ -146,6 +158,8 @@ class NotifyMiddleware
         try {
             $state = $this->synchronizeVHosts(NodeInterface::STATE_READY);
             $state = $this->synchronizeApplications($state);
+        } catch (Exception $e) {
+            $state = NodeInterface::STATE_FAILURE;
         } catch (Throwable $e) {
             $state = NodeInterface::STATE_FAILURE;
         }
