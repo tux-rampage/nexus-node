@@ -40,12 +40,14 @@ use Interop\Container\ContainerInterface;
 class InstallerProvider implements InstallerProviderInterface
 {
     /**
+     * Contains the installer classes indexed by package type
+     *
      * @var string[]
      */
-    protected $packageTypes = [];
+    protected $installerClasses = [];
 
     /**
-     * Installer by type cache
+     * Installer prototypes indexed by package type
      *
      * @var InstallerInterface[]
      */
@@ -64,18 +66,18 @@ class InstallerProvider implements InstallerProviderInterface
     public function __construct(ContainerInterface $container)
     {
         $this->container = $container;
-        $this->packageTypes = [
+        $this->installerClasses = [
             ComposerPackage::TYPE_COMPOSER => ComposerInstaller::class,
             ZpkPackage::TYPE_ZPK => ZpkInstaller::class,
         ];
     }
 
     /**
-     * @param InstallerInterface $type
+     * @param InstallerInterface $packageType
      */
-    public function addPackageType($type, $class)
+    public function addInstaller($packageType, $class)
     {
-        $this->packageTypes[$type] = $class;
+        $this->installerClasses[$packageType] = $class;
         return $this;
     }
 
@@ -88,11 +90,11 @@ class InstallerProvider implements InstallerProviderInterface
      */
     protected function createInstallerPrototype($type)
     {
-        if (!isset($this->packageTypes[$type])) {
+        if (!isset($this->installerClasses[$type])) {
             throw new RuntimeException('Unsupported package type: ' . $type);
         }
 
-        $installer = $this->container->get($this->packageTypes[$type]);
+        $installer = $this->container->get($this->installerClasses[$type]);
 
         if (!$installer instanceof InstallerInterface) {
             $type = is_object($installer)? get_class($installer) : gettype($installer);
@@ -100,6 +102,14 @@ class InstallerProvider implements InstallerProviderInterface
         }
 
         $this->prototypes[$type] = $installer;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getSupportedPackageTypes()
+    {
+        return array_keys($this->installerClasses);
     }
 
     /**

@@ -28,6 +28,7 @@ use Rampage\Nexus\Entities\ApplicationInstance;
 use Rampage\Nexus\Deployment\NodeInterface;
 
 use JsonSerializable;
+use Rampage\Nexus\Package\Installer\InstallerProviderInterface;
 
 
 class NodeInfo implements JsonSerializable
@@ -53,17 +54,24 @@ class NodeInfo implements JsonSerializable
     private $aggregatedState = null;
 
     /**
+     * @var InstallerProviderInterface
+     */
+    private $installers;
+
+    /**
      * @param ApplicationRepositoryInterface $appRepository
      * @param Version $appVersion
      * @param MasterConfigInterface $masterConfig
      */
     public function __construct(ApplicationRepositoryInterface $appRepository,
         Version $appVersion,
-        MasterConfigInterface $masterConfig)
+        MasterConfigInterface $masterConfig,
+        InstallerProviderInterface $installers)
     {
         $this->appRepository = $appRepository;
         $this->appVersion = $appVersion;
         $this->masterConfig = $masterConfig;
+        $this->installers = $installers;
     }
 
     public function getId()
@@ -77,6 +85,14 @@ class NodeInfo implements JsonSerializable
     public function getVersion()
     {
         return $this->appVersion->getVersion();
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getSupportedPackageTypes()
+    {
+        return $this->installers->getSupportedPackageTypes();
     }
 
     /**
@@ -121,7 +137,8 @@ class NodeInfo implements JsonSerializable
         return [
             'id' => $this->getId(),
             'state' => $this->getState(),
-            'version' => $this->getVersion()
+            'version' => $this->getVersion(),
+            'supportedPackageTypes' => $this->getSupportedPackageTypes()
         ];
     }
 

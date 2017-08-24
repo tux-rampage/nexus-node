@@ -26,16 +26,34 @@ use Interop\Http\ServerMiddleware\MiddlewareInterface;
 use Interop\Http\ServerMiddleware\DelegateInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Zend\Diactoros\Response\TextResponse;
+use Rampage\Nexus\Node\MasterConfigInterface;
 
 
 class AuthenticationMiddleware implements MiddlewareInterface
 {
     /**
+     * @var MasterConfigInterface
+     */
+    private $masterConfig;
+
+    /**
+     * @param MasterConfigInterface $masterConfig
+     */
+    public function __construct(MasterConfigInterface $masterConfig)
+    {
+        $this->masterConfig = $masterConfig;
+    }
+    /**
      * Check if the request has a valid authentication
      */
     public function process(ServerRequestInterface $request, DelegateInterface $delegate)
     {
-        // TODO Auto-generated method stub
-        return new TextResponse('Unauthorized', 401);
+        $token = $request->getHeaderLine('Authorization');
+
+        if (!$token || ($token != $this->masterConfig->getMasterSecret())) {
+            return new TextResponse('Unauthorized', 401);
+        }
+
+        return $delegate->process($request);
     }
 }
