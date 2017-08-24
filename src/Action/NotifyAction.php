@@ -33,8 +33,9 @@ use Rampage\Nexus\Job\QueueInterface;
 use Rampage\Nexus\Deployment\NodeInterface;
 use Rampage\Nexus\Entities\ApplicationInstance;
 
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\RequestInterface;
+use Interop\Http\ServerMiddleware\MiddlewareInterface;
+use Interop\Http\ServerMiddleware\DelegateInterface;
+use Psr\Http\Message\ServerRequestInterface;
 
 use Zend\Diactoros\Response\JsonResponse;
 
@@ -45,7 +46,7 @@ use Exception;
 /**
  * Notification rest action
  */
-class NotifyAction
+class NotifyAction implements MiddlewareInterface
 {
     /**
      * @var ApplicationRepositoryInterface
@@ -149,21 +150,24 @@ class NotifyAction
     }
 
     /**
-     * @param RequestInterface $request
-     * @param ResponseInterface $response
-     * @param callable $next
+     * {@inheritDoc}
+     * @see \Interop\Http\ServerMiddleware\MiddlewareInterface::process()
      */
-    public function __invoke(RequestInterface $request, ResponseInterface $response, callable $next = null)
+    public function process(ServerRequestInterface $request, DelegateInterface $delegate)
     {
+        $responseCode = 200;
+
         try {
             $state = $this->synchronizeVHosts(NodeInterface::STATE_READY);
             $state = $this->synchronizeApplications($state);
         } catch (Exception $e) {
             $state = NodeInterface::STATE_FAILURE;
+            $responseCode = 500;
         } catch (Throwable $e) {
             $state = NodeInterface::STATE_FAILURE;
+            $responseCode = 500;
         }
 
-        return new JsonResponse(['state' => $state]);
+        return new JsonResponse(['state' => $state], $responseCode);
     }
 }
