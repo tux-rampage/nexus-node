@@ -33,10 +33,6 @@ class HttpClientFactory implements FactoryInterface
      */
     public function __invoke(ContainerInterface $container, $requestedName, array $options = null)
     {
-        $client = new HttpClientFactory()
         // TODO Auto-generated method stub
-
     }
-
-
 }
